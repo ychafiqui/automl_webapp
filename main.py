@@ -190,7 +190,7 @@ with st.expander("Model Training"):
                         st.session_state.models.append(xgb_model)
                 if "CatBoost" in models:
                     with st.spinner("Training CatBoost model..."):
-                        cat_model = CatBoostClassifier(n_estimators=n_estimators) if prob=="Classification" else CatBoostRegressor(n_estimators=n_estimators)
+                        cat_model = CatBoostClassifier(n_estimators=n_estimators, allow_writing_files=False) if prob=="Classification" else CatBoostRegressor(n_estimators=n_estimators, allow_writing_files=False)
                         cat_model.fit(X_train, y_train, verbose=False)
                         st.success("CatBoost model training complete!")
                         st.session_state.models.append(cat_model)
