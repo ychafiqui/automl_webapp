@@ -8,3 +8,6 @@
 6. Train regression/classification models.
 7. Evaluate your trained models.
 8. Download your models.
+
+## Demo (Work is still in progress...)
+![](https://github.com/ychafiqui/automl_webapp/blob/main/demo.png)
