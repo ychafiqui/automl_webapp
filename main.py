@@ -56,7 +56,7 @@ with st.expander("Data Summary"):
 with st.expander("Data Visualization"):
     if df is not None:
         st.subheader("Correlation Heatmap")
-        fig = px.imshow(df.corr(numeric_only=True))
+        fig = px.imshow(df.corr(numeric_only=True), width=980)
         fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
         st.plotly_chart(fig)
 
@@ -72,7 +72,7 @@ with st.expander("Data Visualization"):
             st.subheader("Scatter plot between two columns")
             x_col = st.selectbox("Select x column", all_cols_more_40, index=0)
             y_col = st.selectbox("Select y column", all_cols_more_40, index=1)
-            fig = px.scatter(df, x=x_col, y=y_col)
+            fig = px.scatter(df, x=x_col, y=y_col, width=980)
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
             st.plotly_chart(fig)
 
@@ -228,12 +228,6 @@ with st.expander("Model Evaluation"):
                 })
                 eval_df = pd.concat([eval_df, row_df], ignore_index=True)
             st.table(eval_df)
-            st.subheader("Confusion Matrix")
-            cols = st.columns(len(st.session_state.models))
-            for i, col in enumerate(cols):
-                col.write(st.session_state.model_names[i])
-                y_pred = st.session_state.models[i].predict(X_test)
-                col.table(confusion_matrix(y_test, y_pred))
         elif prob == "Regression":
             eval_df = pd.DataFrame(columns=["Model", "R2 Score", "Mean Absolute Error", "Mean Squared Error", "Root Mean Squared Error"])
             for model, name in zip(st.session_state.models, st.session_state.model_names):
@@ -247,6 +241,19 @@ with st.expander("Model Evaluation"):
                 })
                 eval_df = pd.concat([eval_df, row_df], ignore_index=True)
             st.table(eval_df)
+        
+        fig = px.bar(eval_df.set_index("Model"), orientation='h', width=980)
+        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+        st.write(fig)
+        # st.bar_chart(eval_df.set_index("Model"), use_container_width=True)
+        
+        if prob == "Classification":
+            st.subheader("Confusion Matrix")
+            cols = st.columns(len(st.session_state.models))
+            for i, col in enumerate(cols):
+                col.write(st.session_state.model_names[i])
+                y_pred = st.session_state.models[i].predict(X_test)
+                col.table(confusion_matrix(y_test, y_pred))
 
 with st.expander("Model Download"):
     if 'models' in st.session_state and len(st.session_state.models) != 0:
