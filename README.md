@@ -10,7 +10,7 @@
 8. Download your models.
 
 ## Demo (Work is still in progress...)
-![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo.png)
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo0.png)
 
 ## Data Summary
 ![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo1.png)
