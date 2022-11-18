@@ -49,6 +49,9 @@ with st.expander("Upload your data", expanded=True):
 with st.expander("Data Summary"):
     if df is not None:
         st.write(df.describe())
+        st.write("Dataset shape:", df.shape)
+        st.write("Number of Nan values across columns:", df.isna().sum())
+        st.write("Total number of Nan values:", df.isna().sum().sum())
 
 with st.expander("Data Visualization"):
     if df is not None:
@@ -59,10 +62,19 @@ with st.expander("Data Visualization"):
 
         st.subheader("Value Counts")
         all_cols_less_40 = [col for col in df.columns if df[col].nunique() < 40]
-        cols_to_show = st.multiselect("Select columns to show", all_cols_less_40)
+        cols_to_show = st.multiselect("Select columns to show", all_cols_less_40, default=all_cols_less_40[0])
         for col in cols_to_show:
             st.write(col)
             st.bar_chart(df[col].value_counts())
+
+        all_cols_more_40 = [col for col in df.columns if df[col].nunique() >= 40]
+        if len(all_cols_more_40) > 1:
+            st.subheader("Scatter plot between two columns")
+            x_col = st.selectbox("Select x column", all_cols_more_40, index=0)
+            y_col = st.selectbox("Select y column", all_cols_more_40, index=1)
+            fig = px.scatter(df, x=x_col, y=y_col)
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+            st.plotly_chart(fig)
 
 with st.expander("Data Cleaning"):
     if df is not None:
