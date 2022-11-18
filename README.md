@@ -10,4 +10,26 @@
 8. Download your models.
 
 ## Demo (Work is still in progress...)
-![](https://github.com/ychafiqui/automl_webapp/blob/main/demo.png)
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo.png)
+
+## Data Summary
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo1.png)
+ 
+## Data Visualization - Corraltion Matrix
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo2.png)
+ 
+## Data Visualization - Values Distribution
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo3.png)
+ 
+## Data Visualization - Scatter Plot
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo4.png)
+ 
+## Data Cleaning
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo5.png)
+ 
+## Modeling
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo6.png)
+ 
+## Models Evaluation and Download
+![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo7.png)
+ 
