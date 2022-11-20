@@ -182,7 +182,7 @@ with st.expander("Model Training"):
             n_estimators = st.number_input("Number of estimators", key=3, min_value=100, max_value=10000, value=1000)
         if "SVM" in models:
             st.subheader("SVM Parameters")
-            kernel = st.selectbox("Select kernel", ["linear", "poly", "rbf", "sigmoid", "precomputed"])
+            kernel = st.selectbox("Select kernel", ["linear", "poly", "rbf", "sigmoid"])
             c = st.number_input("C parameter value", min_value=0.1, max_value=10.0, value=1.0)
         if "KNN" in models:
             st.subheader("KNN Parameters")
