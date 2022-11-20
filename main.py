@@ -11,9 +11,13 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from xgboost import XGBClassifier, XGBRegressor
 from catboost import CatBoostRegressor, CatBoostClassifier
+from sklearn.svm import SVC, SVR
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 import numpy as np
 from sklearn.metrics import r2_score, accuracy_score, confusion_matrix, mean_absolute_error, mean_squared_error, precision_score, recall_score, f1_score, roc_auc_score
 import pickle
+
+plot_colors = px.colors.sequential.YlOrRd[::-2]
 
 st.set_page_config(layout="wide")
 st.title("Auto Machine Learning Web Application")
@@ -72,7 +76,7 @@ with st.expander("Data Visualization"):
             st.subheader("Scatter plot between two columns")
             x_col = st.selectbox("Select x column", all_cols_more_40, index=0)
             y_col = st.selectbox("Select y column", all_cols_more_40, index=1)
-            fig = px.scatter(df, x=x_col, y=y_col, width=980)
+            fig = px.scatter(df, x=x_col, y=y_col, width=980, color_discrete_sequence=plot_colors[1:])
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
             st.plotly_chart(fig)
 
@@ -115,9 +119,8 @@ with st.expander("Data Preprocessing"):
 
         if st.button("Apply data preprocessing"):
             if balance:
-                st.session_state.target = target
-                X = df.drop(st.session_state.target, axis=1)
-                y = df[st.session_state.target]
+                X = df.drop(target, axis=1)
+                y = df[target]
                 if sample_tech == "Over Sampling":
                     X_resampled, y_resampled = RandomOverSampler(random_state=0).fit_resample(X, y)
                 elif sample_tech == "Under Sampling":
@@ -125,19 +128,24 @@ with st.expander("Data Preprocessing"):
                 elif sample_tech == "Combined":
                     X_resampled, y_resampled = SMOTEENN(random_state=0).fit_resample(X, y)
                 df = pd.DataFrame(X_resampled, columns=df.columns[:-1])
-                df[st.session_state.target] = y_resampled
-                st.bar_chart(df[st.session_state.target].value_counts())
+                df[target] = y_resampled
+                st.bar_chart(df[target].value_counts())
             if pca:
                 columns = df.columns
                 df = OrdinalEncoder().fit_transform(df)
                 df = pd.DataFrame(df, columns=columns)
-                st.session_state.target = target
-                pca = PCA(n_components=n_components)
-                X = df.drop(st.session_state.target, axis=1)
-                y = df[st.session_state.target]
-                df = pca.fit_transform(X)
-                df = pd.DataFrame(df)
-                df[st.session_state.target] = y
+                try:
+                    pca = PCA(n_components=n_components)
+                    X = df.drop(target, axis=1)
+                    y = df[target]
+                    df = pca.fit_transform(X)
+                    df = pd.DataFrame(df)
+                    df[target] = y
+                except Exception as e:
+                    if df.isna().sum().sum() > 0:
+                        st.error("Your dataset contains NaN values. Please remove them from the Data Cleaning section and try again")
+                    else:
+                        st.error(e)
 
             st.session_state.df = df
             st.write(df)
@@ -155,10 +163,10 @@ with st.expander("Model Training"):
         st.write(df)
         st.write("Dataset shape:", df.shape)
         test_data_size = st.slider("Test data size (%)", 10, 90, 20, 5)
-        if 'target' not in st.session_state:
-            st.session_state.target = st.selectbox("Select target column", df.columns, index=len(df.columns)-1)
+        target = st.selectbox("Select target column", df.columns, index=len(df.columns)-1)
         prob = st.radio("Select problem type", ["Classification", "Regression"])
-        models = st.multiselect("Select ML models to train", ["Logistic/Linear Regression", "Random Forest", "XGBoost", "CatBoost"])
+        models_list = ["Logistic/Linear Regression", "Random Forest", "XGBoost", "CatBoost", "SVM", "KNN"]
+        models = st.multiselect("Select ML models to train", models_list)
 
         if "Logistic/Linear Regression" in models:
             st.subheader("Logistic/Linear Regression Parameters")
@@ -172,6 +180,13 @@ with st.expander("Model Training"):
         if "CatBoost" in models:
             st.subheader("CatBoost Parameters")
             n_estimators = st.number_input("Number of estimators", key=3, min_value=100, max_value=10000, value=1000)
+        if "SVM" in models:
+            st.subheader("SVM Parameters")
+            kernel = st.selectbox("Select kernel", ["linear", "poly", "rbf", "sigmoid", "precomputed"])
+            c = st.number_input("C parameter value", min_value=0.1, max_value=10.0, value=1.0)
+        if "KNN" in models:
+            st.subheader("KNN Parameters")
+            n_neighbors = st.number_input("Number of neighbors k", min_value=1, max_value=100, value=5)
 
         if st.button("Train models"):
             if len(models) == 0:
@@ -179,41 +194,59 @@ with st.expander("Model Training"):
             else:
                 st.session_state.models = []
                 st.session_state.model_names = models
-                X = df.drop(st.session_state.target, axis=1)
-                y = df[st.session_state.target]
+                X = df.drop(target, axis=1)
+                y = df[target]
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_data_size/100)
-                if "Logistic/Linear Regression" in models:
-                    with st.spinner("Training Logistic/Linear Regression model..."):
-                        lr_model = LogisticRegression(max_iter=max_iter) if prob == "Classification" else LinearRegression()
-                        lr_model.fit(X_train, y_train)
-                        st.success("Logistic/Linear Regression model training complete!")
-                        st.session_state.models.append(lr_model)
-                if "Random Forest" in models:
-                    with st.spinner("Training Random Forest model..."):
-                        rf_model = RandomForestClassifier(n_estimators=n_estimators) if prob=="Classification" else RandomForestRegressor(n_estimators=n_estimators)
-                        rf_model.fit(X_train, y_train)
-                        st.success("Random Forest model training complete!")
-                        st.session_state.models.append(rf_model)
-                if "XGBoost" in models:
-                    with st.spinner("Training XGBoost model..."):
-                        xgb_model = XGBClassifier(n_estimators=n_estimators) if prob=="Classification" else XGBRegressor(n_estimators=n_estimators)
-                        xgb_model.fit(X_train, y_train)
-                        st.success("XGBoost model training complete!")
-                        st.session_state.models.append(xgb_model)
-                if "CatBoost" in models:
-                    with st.spinner("Training CatBoost model..."):
-                        cat_model = CatBoostClassifier(n_estimators=n_estimators, allow_writing_files=False) if prob=="Classification" else CatBoostRegressor(n_estimators=n_estimators, allow_writing_files=False)
-                        cat_model.fit(X_train, y_train, verbose=False)
-                        st.success("CatBoost model training complete!")
-                        st.session_state.models.append(cat_model)
-                st.session_state.eval = True
+                try:
+                    if "Logistic/Linear Regression" in models:
+                        with st.spinner("Training Logistic/Linear Regression model..."):
+                            lr_model = LogisticRegression(max_iter=max_iter) if prob == "Classification" else LinearRegression()
+                            lr_model.fit(X_train, y_train)
+                            st.success("Logistic/Linear Regression model training complete!")
+                            st.session_state.models.append(lr_model)
+                    if "Random Forest" in models:
+                        with st.spinner("Training Random Forest model..."):
+                            rf_model = RandomForestClassifier(n_estimators=n_estimators) if prob=="Classification" else RandomForestRegressor(n_estimators=n_estimators)
+                            rf_model.fit(X_train, y_train)
+                            st.success("Random Forest model training complete!")
+                            st.session_state.models.append(rf_model)
+                    if "XGBoost" in models:
+                        with st.spinner("Training XGBoost model..."):
+                            xgb_model = XGBClassifier(n_estimators=n_estimators) if prob=="Classification" else XGBRegressor(n_estimators=n_estimators)
+                            xgb_model.fit(X_train, y_train)
+                            st.success("XGBoost model training complete!")
+                            st.session_state.models.append(xgb_model)
+                    if "CatBoost" in models:
+                        with st.spinner("Training CatBoost model..."):
+                            cat_model = CatBoostClassifier(n_estimators=n_estimators, allow_writing_files=False) if prob=="Classification" else CatBoostRegressor(n_estimators=n_estimators, allow_writing_files=False)
+                            cat_model.fit(X_train, y_train, verbose=False)
+                            st.success("CatBoost model training complete!")
+                            st.session_state.models.append(cat_model)
+                    if "SVM" in models:
+                        with st.spinner("Training SVM model..."):
+                            svm_model = SVC(kernel=kernel, C=c) if prob=="Classification" else SVR(kernel=kernel, C=c)
+                            svm_model.fit(X_train, y_train)
+                            st.success("SVM model training complete!")
+                            st.session_state.models.append(svm_model)
+                    if "KNN" in models:
+                        with st.spinner("Training KNN model..."):
+                            knn_model = KNeighborsClassifier(n_neighbors=n_neighbors) if prob=="Classification" else KNeighborsRegressor(n_neighbors=n_neighbors)
+                            knn_model.fit(X_train, y_train)
+                            st.success("KNN model training complete!")
+                            st.session_state.models.append(knn_model)
+                    st.session_state.eval = True
+                except Exception as e:
+                    if df.isna().sum().sum() > 0:
+                        st.error("Your dataset contains NaN values. Please remove them from the Data Cleaning section and try again")
+                    else:
+                        st.error(e)
 
 with st.expander("Model Evaluation"):
     if 'models' in st.session_state and len(st.session_state.models) != 0 and st.session_state.eval:
         st.subheader("Evaluation Metrics")
         if prob == "Classification":
             eval_df = pd.DataFrame(columns=["Model", "Accuracy", "Precision", "Recall", "F1 Score"])
-            if df[st.session_state.target].nunique() > 2:
+            if df[target].nunique() > 2:
                 avg = 'micro'
             else:
                 avg = 'binary'
@@ -242,7 +275,12 @@ with st.expander("Model Evaluation"):
                 eval_df = pd.concat([eval_df, row_df], ignore_index=True)
             st.table(eval_df)
         
-        fig = px.bar(eval_df.set_index("Model"), orientation='h', width=980)
+        fig = px.bar(
+            eval_df.set_index("Model"), 
+            orientation='h', 
+            width=980,
+            color_discrete_sequence=plot_colors
+        )
         fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
         st.write(fig)
         # st.bar_chart(eval_df.set_index("Model"), use_container_width=True)
