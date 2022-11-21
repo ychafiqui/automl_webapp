@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from plotly import graph_objects as go
 from sklearn.decomposition import PCA
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
@@ -13,8 +14,9 @@ from xgboost import XGBClassifier, XGBRegressor
 from catboost import CatBoostRegressor, CatBoostClassifier
 from sklearn.svm import SVC, SVR
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.cluster import KMeans, AgglomerativeClustering
 import numpy as np
-from sklearn.metrics import r2_score, accuracy_score, confusion_matrix, mean_absolute_error, mean_squared_error, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import r2_score, accuracy_score, confusion_matrix, mean_absolute_error, mean_squared_error, precision_score, recall_score, f1_score, silhouette_score
 import pickle
 
 plot_colors = px.colors.sequential.YlOrRd[::-2]
@@ -162,11 +164,16 @@ with st.expander("Model Training"):
         st.write("Dataset to be used for training")
         st.write(df)
         st.write("Dataset shape:", df.shape)
-        test_data_size = st.slider("Test data size (%)", 10, 90, 20, 5)
-        target = st.selectbox("Select target column", df.columns, index=len(df.columns)-1)
-        prob = st.radio("Select problem type", ["Classification", "Regression"])
-        models_list = ["Logistic/Linear Regression", "Random Forest", "XGBoost", "CatBoost", "SVM", "KNN"]
-        models = st.multiselect("Select ML models to train", models_list)
+        prob = st.radio("Select problem type", ["Classification", "Regression", "Clustering"])
+
+        if prob != "Clustering":
+            target = st.selectbox("Select target column", df.columns, index=len(df.columns)-1)
+            test_data_size = st.slider("Test data size (%)", 10, 90, 20, 5)
+            models_list = ["Logistic/Linear Regression", "Random Forest", "XGBoost", "CatBoost", "SVM", "KNN"]
+            models = st.multiselect("Select ML models to train", models_list)
+        else:
+            models_list = ["K-Means", "Hierarchical Clustering"]
+            models = st.multiselect("Select Clustering algorithms", models_list)
 
         if "Logistic/Linear Regression" in models:
             st.subheader("Logistic/Linear Regression Parameters")
@@ -188,15 +195,24 @@ with st.expander("Model Training"):
             st.subheader("KNN Parameters")
             n_neighbors = st.number_input("Number of neighbors k", min_value=1, max_value=100, value=5)
 
+        if "K-Means" in models:
+            st.subheader("K-Means Parameters")
+            n_clusters = st.number_input("Number of clusters", min_value=2, max_value=10, value=4, key=1)
+        if "Hierarchical Clustering" in models:
+            st.subheader("Hierarchical Clustering Parameters")
+            n_clusters = st.number_input("Number of clusters", min_value=2, max_value=10, value=4, key=2)
+            linkage = st.selectbox("Select linkage", ["ward", "complete", "average", "single"])
+
         if st.button("Train models"):
             if len(models) == 0:
                 st.error("Please select at least one model to train")
             else:
                 st.session_state.models = []
                 st.session_state.model_names = models
-                X = df.drop(target, axis=1)
-                y = df[target]
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_data_size/100)
+                if prob != "Clustering":
+                    X = df.drop(target, axis=1)
+                    y = df[target]
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_data_size/100)
                 try:
                     if "Logistic/Linear Regression" in models:
                         with st.spinner("Training Logistic/Linear Regression model..."):
@@ -234,6 +250,20 @@ with st.expander("Model Training"):
                             knn_model.fit(X_train, y_train)
                             st.success("KNN model training complete!")
                             st.session_state.models.append(knn_model)
+
+                    if "K-Means" in models:
+                        with st.spinner("Running K-Means algorithm..."):
+                            km_model = KMeans(n_clusters=n_clusters)
+                            km_model.fit(df)
+                            st.success("K-Means clustering complete!")
+                            st.session_state.models.append(km_model)
+                    if "Hierarchical Clustering" in models:
+                        with st.spinner("Running Hierarchical Clustering algorithm..."):
+                            hc_model = AgglomerativeClustering(n_clusters=n_clusters, linkage=linkage)
+                            hc_model.fit(df)
+                            st.success("Hierarchical Clustering complete!")
+                            st.session_state.models.append(hc_model)
+
                     st.session_state.eval = True
                 except Exception as e:
                     if df.isna().sum().sum() > 0:
@@ -241,7 +271,7 @@ with st.expander("Model Training"):
                     else:
                         st.error(e)
 
-with st.expander("Model Evaluation"):
+with st.expander("Model Evaluation", expanded=True):
     if 'models' in st.session_state and len(st.session_state.models) != 0 and st.session_state.eval:
         st.subheader("Evaluation Metrics")
         if prob == "Classification":
@@ -261,31 +291,16 @@ with st.expander("Model Evaluation"):
                 })
                 eval_df = pd.concat([eval_df, row_df], ignore_index=True)
             st.table(eval_df)
-        elif prob == "Regression":
-            eval_df = pd.DataFrame(columns=["Model", "R2 Score", "Mean Absolute Error", "Mean Squared Error", "Root Mean Squared Error"])
-            for model, name in zip(st.session_state.models, st.session_state.model_names):
-                y_pred = model.predict(X_test)
-                row_df = pd.DataFrame({
-                    "Model": [name],
-                    "R2 Score": [r2_score(y_test, y_pred)],
-                    "Mean Absolute Error": [mean_absolute_error(y_test, y_pred)],
-                    "Mean Squared Error": [mean_squared_error(y_test, y_pred)],
-                    "Root Mean Squared Error": [np.sqrt(mean_squared_error(y_test, y_pred))]
-                })
-                eval_df = pd.concat([eval_df, row_df], ignore_index=True)
-            st.table(eval_df)
-        
-        fig = px.bar(
-            eval_df.set_index("Model"), 
-            orientation='h', 
-            width=980,
-            color_discrete_sequence=plot_colors
-        )
-        fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
-        st.write(fig)
-        # st.bar_chart(eval_df.set_index("Model"), use_container_width=True)
-        
-        if prob == "Classification":
+
+            fig = px.bar(
+                eval_df.set_index("Model"), 
+                orientation='h', 
+                width=980,
+                color_discrete_sequence=plot_colors
+            )
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), yaxis={'categoryorder':'total ascending'})
+            st.write(fig)
+
             st.subheader("Confusion Matrix")
             cols = st.columns(len(st.session_state.models))
             for i, col in enumerate(cols):
@@ -293,7 +308,63 @@ with st.expander("Model Evaluation"):
                 y_pred = st.session_state.models[i].predict(X_test)
                 col.table(confusion_matrix(y_test, y_pred))
 
-with st.expander("Model Download"):
+        elif prob == "Regression":
+            eval_df1 = pd.DataFrame(columns=["Model", "Mean Absolute Error", "Root Mean Squared Error"])
+            eval_df2 = pd.DataFrame(columns=["Model", "R2 Score"])
+            for model, name in zip(st.session_state.models, st.session_state.model_names):
+                y_pred = model.predict(X_test)
+                row_df1 = pd.DataFrame({
+                    "Model": [name],
+                    "Mean Absolute Error": [mean_absolute_error(y_test, y_pred)],
+                    "Root Mean Squared Error": [np.sqrt(mean_squared_error(y_test, y_pred))]
+                })
+                row_df2 = pd.DataFrame({
+                    "Model": [name],
+                    "R2 Score": [r2_score(y_test, y_pred)],
+                })
+                eval_df1 = pd.concat([eval_df1, row_df1], ignore_index=True)
+                eval_df2 = pd.concat([eval_df2, row_df2], ignore_index=True)
+            st.table(eval_df1)
+            fig = px.bar(
+                eval_df1.set_index("Model"), 
+                orientation='h', 
+                width=980,
+                color_discrete_sequence=plot_colors
+            )
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), yaxis={'categoryorder':'total descending'})
+            st.write(fig)
+
+            st.table(eval_df2)
+            fig = px.bar(
+                eval_df2.set_index("Model"), 
+                orientation='h', 
+                width=980,
+                color_discrete_sequence=plot_colors
+            )
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), yaxis={'categoryorder':'total ascending'})
+            st.write(fig)
+        
+        elif prob == "Clustering":
+            eval_df = pd.DataFrame(columns=["Model", "Silhouette Score"])
+            for model, name in zip(st.session_state.models, st.session_state.model_names):
+                row_df = pd.DataFrame({
+                    "Model": [name],
+                    "Silhouette Score": [silhouette_score(df, model.labels_)]
+                })
+                eval_df = pd.concat([eval_df, row_df], ignore_index=True)
+            st.table(eval_df)
+
+            fig = px.bar(
+                eval_df.set_index("Model"), 
+                orientation='h', 
+                width=980,
+                color_discrete_sequence=plot_colors
+            )
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), yaxis={'categoryorder':'total ascending'})
+            st.write(fig)
+
+
+with st.expander("Model Download", expanded=True):
     if 'models' in st.session_state and len(st.session_state.models) != 0:
         st.write("Download your trained models")
         for m, model_name in zip(st.session_state.models, st.session_state.model_names):
