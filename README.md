@@ -10,6 +10,7 @@
 8. Download your models.
 
 ## Demo (Work is still in progress...)
+[![Open in Streamlit][share_badge]][share_link] 
 ![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo0.png)
 
 ## Data Summary
