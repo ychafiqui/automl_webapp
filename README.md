@@ -10,7 +10,7 @@
 8. Download your models.
 
 ## Demo (Work is still in progress...)
-[![Open in Streamlit][share_badge]][share_link] 
+[![Open in Streamlit][https://static.streamlit.io/badges/streamlit_badge_black_white.svg]][https://automl.streamlit.app/] 
 ![](https://github.com/ychafiqui/automl_webapp/blob/main/screenshots/demo0.png)
 
 ## Data Summary
